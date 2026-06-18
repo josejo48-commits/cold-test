@@ -117,9 +117,9 @@ body{background:var(--bg);color:var(--text);
 .prog-bar{height:100%;border-radius:3px;transition:width .8s linear,background .3s;
   background:linear-gradient(90deg,var(--iced),var(--ice2));}
 .prog-bar.warn{background:linear-gradient(90deg,#884400,var(--warn));}
-.prog-wrap{height:8px;background:rgba(255,255,255,.08);border-radius:4px;
-  overflow:hidden;margin:10px 0 5px;border:1px solid rgba(255,255,255,.12);}
-.prog-bar{height:100%;border-radius:4px;transition:width .8s linear,background .3s;
+.prog-wrap{height:10px;background:rgba(255,255,255,.1);border-radius:5px;
+  overflow:hidden;margin:10px 0 5px;border:1px solid rgba(255,255,255,.15);}
+.prog-bar{height:100%;border-radius:5px;transition:width .8s linear,background .3s;
   background:linear-gradient(90deg,var(--iced),var(--ice2));}
 .prog-bar.warn{background:linear-gradient(90deg,#884400,var(--warn));}
 .prog-bar.alarm{background:linear-gradient(90deg,#660000,var(--danger));}
@@ -148,7 +148,10 @@ body{background:var(--bg);color:var(--text);
   letter-spacing:1px;transition:all .15s;-webkit-appearance:none;}
 .btn:active{transform:scale(.96);}
 .btn-play{background:linear-gradient(135deg,#006a44,#00a066);color:#fff;}
-.btn-reset{background:var(--surf);border:1px solid var(--brd);color:var(--muted);}
+.btn-reset{background:var(--surf);border:1.5px solid var(--brd);color:var(--muted);
+  transition:all .15s;}
+.btn-reset:active{background:rgba(232,64,64,.15);border-color:var(--danger);color:var(--danger);}
+.btn-reset:hover{border-color:var(--ice2);color:var(--ice2);}
 
 /* CARD GENÉRICA */
 .card{background:var(--surf);border:1px solid var(--brd);border-radius:14px;
