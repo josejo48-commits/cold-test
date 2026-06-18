@@ -831,15 +831,6 @@ function ctExportar(){
     msg+='\n';
   });
 
-  // Promedio general de todos los fraccionamientos
-  var todosNum=CT.lista.map(function(x){return parseFloat(x.resultado);}).filter(function(n){return !isNaN(n);});
-  if(todosNum.length>1){
-    var sumaTotal=todosNum.reduce(function(a,b){return a+b;},0);
-    var promTotal=(sumaTotal/todosNum.length).toFixed(2);
-    msg+='━━━━━━━━━━━━━━━━━━━━━━\n'
-      +'📊 *Promedio general: '+promTotal+'*\n';
-  }
-
   msg+='━━━━━━━━━━━━━━━━━━━━━━\n'
     +'Control de Calidad';
 
