@@ -7,6 +7,19 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cold Test">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "0a3be169-1a57-41b0-93ba-501988b5eebb",
+      serviceWorkerParam: { scope: "/" },
+      serviceWorkerPath: "OneSignalSDKWorker.js",
+      notifyButton: { enable: false },
+      allowLocalhostAsSecureOrigin: true,
+    });
+  });
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Cold Test</title>
@@ -111,7 +124,16 @@ body{background:var(--bg);color:var(--text);
 .prog-bar.warn{background:linear-gradient(90deg,#884400,var(--warn));}
 .prog-bar.alarm{background:linear-gradient(90deg,#660000,var(--danger));}
 .prog-labels{display:flex;justify-content:space-between;
-  font-size:9px;color:var(--muted);margin-bottom:12px;}
+  font-size:11px;color:var(--ice2);font-weight:700;margin-bottom:12px;}
+
+/* BOTÓN PANTALLA ACTIVA */
+.screen-btn{width:100%;padding:9px;border-radius:10px;border:none;margin-bottom:10px;
+  background:rgba(91,168,208,.12);border:1px solid rgba(91,168,208,.3);
+  color:var(--ice2);font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;letter-spacing:.5px;transition:all .15s;-webkit-appearance:none;
+  display:flex;align-items:center;justify-content:center;gap:8px;}
+.screen-btn.active{background:rgba(0,212,160,.12);border-color:rgba(0,212,160,.4);color:var(--ok);}
+.screen-btn:active{transform:scale(.98);}
 
 /* MARCAS DE ALERTA en la barra */
 .prog-marks{position:relative;height:14px;margin-top:-2px;margin-bottom:10px;}
@@ -306,6 +328,11 @@ body{background:var(--bg);color:var(--text);
 <div class="prog-wrap"><div class="prog-bar" id="ctProg" style="width:0%"></div></div>
 <div class="prog-marks" id="progMarks"></div>
 <div class="prog-labels"><span>0</span><span id="progEnd">15 min</span></div>
+
+<!-- MANTENER PANTALLA -->
+<button class="screen-btn" id="screenBtn" onclick="togglePantalla()">
+  💡 Mantener pantalla activa
+</button>
 
 <!-- BOTONES CRONÓMETRO -->
 <div class="btn-row">
@@ -624,6 +651,7 @@ function ctToggle(){
     CT.elapsed=0;CT.alertCount=0;CT.phasesFired={};
     addLog('Iniciado','d');
     hablar('cold test iniciado');
+    osScheduleAll();
     setPhaseCard({title:'En curso',desc:'Le avisaré cuando deba revisar.',cls:''});
   }
   CT.running=true;CT.paused=false;
@@ -807,6 +835,72 @@ function ctCopiar(){
   }
 }
 
+// ── ONESIGNAL - NOTIFICACIONES PUSH REALES ───────────────────
+var OS_PLAYER_ID = null;
+
+function osInit(){
+  if(!window.OneSignal) return;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(function(OneSignal){
+    OneSignal.User.PushSubscription.addEventListener('change', function(e){
+      if(e.current.token){
+        OS_PLAYER_ID = e.current.id;
+        localStorage.setItem('os_player_id', e.current.id);
+      }
+    });
+    var stored = localStorage.getItem('os_player_id');
+    if(stored) OS_PLAYER_ID = stored;
+  });
+}
+
+// Enviar notificación programada via OneSignal REST API
+async function osScheduleAlert(minutos, mensaje, tipo){
+  if(!OS_PLAYER_ID){
+    console.log('Sin player ID, usando voz local');
+    return;
+  }
+  var delayMs = minutos * 60 * 1000;
+  var sendAfter = new Date(Date.now() + delayMs).toISOString();
+  try{
+    await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Key os_v2_app_bi56c2i2k5a3be52kamyrnpoxm375ytu3bmemleglw4ubbwpnzqgk3t3so2gwapcyjlayh57g7jams4yvecyrlvqi3vzie6ymu7tm3i'
+      },
+      body: JSON.stringify({
+        app_id: '0a3be169-1a57-41b0-93ba-501988b5eebb',
+        include_subscription_ids: [OS_PLAYER_ID],
+        headings: { es: tipo==='alarm' ? '🔴 Cold Test — Alarma' : '🟡 Cold Test' },
+        contents: { es: mensaje },
+        send_after: sendAfter,
+        delayed_option: 'last-active',
+        ttl: 3600
+      })
+    });
+    console.log('Alerta programada para +' + minutos + ' min');
+  }catch(e){
+    console.log('Error OneSignal:', e);
+  }
+}
+
+// Programar todas las alertas al iniciar
+function osScheduleAll(){
+  if(!OS_PLAYER_ID) return;
+  var dur = CT.duration / 60;
+  // Alertas fijas
+  osScheduleAlert(7,  'ya van 7 minutos revise el cold test', 'warn');
+  osScheduleAlert(10, 'van 10 minutos revise el cold test nuevamente', 'warn');
+  osScheduleAlert(12, 'van 12 minutos registre el resultado', 'warn');
+  osScheduleAlert(15, 'alarma 15 minutos registre el resultado ahora', 'alarm');
+  if(dur > 15){
+    for(var m=17; m<=dur; m+=2){
+      osScheduleAlert(m, 'alarma '+m+' minutos registre ahora', 'alarm');
+    }
+  }
+  addLog('Alertas push programadas para 7, 10, 12 y 15 min','d');
+}
+
 // ── MANTENER ACTIVO EN REPOSO ─────────────────────────────────
 var wakeLock = null;
 var audioKeepAlive = null;
@@ -901,6 +995,7 @@ if('serviceWorker' in navigator
 
 // ── INIT ──────────────────────────────────────────────────────
 window.addEventListener('load',function(){
+  osInit();
   buildFace();setDur(15);updateNeedle();
   if(window.speechSynthesis){
     var preload=function(){
