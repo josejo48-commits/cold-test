@@ -35,7 +35,7 @@
 body{background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
   min-height:100vh;padding:calc(var(--sat)+10px) 14px calc(var(--sab)+30px);
-  max-width:480px;margin:0 auto;}
+  max-width:420px;margin:0 auto;}
 
 /* HEADER */
 .hdr{display:flex;align-items:center;gap:10px;padding:6px 0 18px;}
@@ -810,16 +810,37 @@ function ctExportar(){
   ['1','2'].forEach(function(f){
     var items=CT.lista.filter(function(x){return x.frac===f;});
     if(!items.length) return;
+
     msg+='🔬 *Fraccionamiento '+f+'*\n';
+
+    // Resultados individuales
+    var valores=[];
     items.forEach(function(item){
-      msg+='Batch '+item.batch+' #'+item.num
+      msg+='  Batch '+item.batch+' #'+item.num
         +': '+item.tiempo+' → *'+item.resultado+'*\n';
+      var n=parseFloat(item.resultado);
+      if(!isNaN(n)) valores.push(n);
     });
+
+    // Promedio si hay valores numéricos
+    if(valores.length>0){
+      var suma=valores.reduce(function(a,b){return a+b;},0);
+      var prom=(suma/valores.length).toFixed(2);
+      msg+='  📊 Promedio: *'+prom+'*\n';
+    }
     msg+='\n';
   });
 
+  // Promedio general de todos los fraccionamientos
+  var todosNum=CT.lista.map(function(x){return parseFloat(x.resultado);}).filter(function(n){return !isNaN(n);});
+  if(todosNum.length>1){
+    var sumaTotal=todosNum.reduce(function(a,b){return a+b;},0);
+    var promTotal=(sumaTotal/todosNum.length).toFixed(2);
+    msg+='━━━━━━━━━━━━━━━━━━━━━━\n'
+      +'📊 *Promedio general: '+promTotal+'*\n';
+  }
+
   msg+='━━━━━━━━━━━━━━━━━━━━━━\n'
-    +'Total: '+CT.lista.length+' análisis\n'
     +'Control de Calidad';
 
   document.getElementById('reportPre').textContent=msg;
@@ -882,8 +903,13 @@ async function osScheduleAlert(minutos, mensaje, tipo){
         headings: { es: tipo==='alarm' ? '🔴 Cold Test — Alarma' : '🟡 Cold Test' },
         contents: { es: mensaje },
         send_after: sendAfter,
-        delayed_option: 'last-active',
-        ttl: 3600
+        ttl: 3600,
+        android_channel_id: tipo==='alarm' ? 'alarm' : 'default',
+        android_sound: 'alarm',
+        priority: 10,
+        android_visibility: 1,
+        android_accent_color: tipo==='alarm' ? 'FFe84040' : 'FFf5a623',
+        android_led_color: tipo==='alarm' ? 'FFe84040' : 'FFf5a623'
       })
     });
     console.log('Alerta programada para +' + minutos + ' min');
