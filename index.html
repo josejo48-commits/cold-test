@@ -643,33 +643,39 @@ function ctToggle(){
     clearInterval(CT.interval);CT.running=false;CT.paused=true;
     btn.textContent='CONTINUAR';
     document.getElementById('ctStat').textContent='PAUSADO';
-    soltarWakeLock();
-    detenerAudioKeepAlive();
+    soltarWakeLock(); detenerAudioKeepAlive();
     return;
   }
   if(!CT.paused){
-    CT.elapsed=0;CT.alertCount=0;CT.phasesFired={};
+    // Guardar hora real de inicio — así cuando vuelva calcula tiempo real
+    CT.startTime = Date.now();
+    localStorage.setItem('ct_start', CT.startTime);
+    localStorage.setItem('ct_duration', CT.duration);
+    CT.elapsed=0; CT.alertCount=0; CT.phasesFired={};
     addLog('Iniciado','d');
     hablar('cold test iniciado');
     osScheduleAll();
     setPhaseCard({title:'En curso',desc:'Le avisaré cuando deba revisar.',cls:''});
+  } else {
+    // Continuar — recalcular startTime para que elapsed sea correcto
+    CT.startTime = Date.now() - (CT.elapsed * 1000);
+    localStorage.setItem('ct_start', CT.startTime);
   }
-  CT.running=true;CT.paused=false;
+  CT.running=true; CT.paused=false;
   btn.textContent='PAUSAR';
   document.getElementById('pantallaAviso').className='pantalla-aviso vis';
-
-  // Mantener pantalla activa y audio corriendo
   pedirWakeLock();
   iniciarAudioKeepAlive();
 
   CT.interval=setInterval(function(){
-    CT.elapsed++;
-    updateDisplay();updateNeedle();
+    // Tiempo real transcurrido desde el inicio
+    CT.elapsed = Math.floor((Date.now() - CT.startTime) / 1000);
+    updateDisplay(); updateNeedle();
     CT.phases.forEach(function(ph,i){
-      if(CT.elapsed===ph.t&&!CT.phasesFired[i]){
-        CT.phasesFired[i]=true;CT.alertCount++;
+      if(CT.elapsed>=ph.t&&!CT.phasesFired[i]){
+        CT.phasesFired[i]=true; CT.alertCount++;
         document.getElementById('ctAlerts').textContent=CT.alertCount;
-        beep(ph.cls);hablar(ph.voice);
+        beep(ph.cls); hablar(ph.voice);
         showAlert(ph.desc,ph.cls);
         addLog(ph.title,ph.cls==='alarm'?'a':'w');
         setPhaseCard(ph);
@@ -677,15 +683,17 @@ function ctToggle(){
       }
     });
     if(CT.elapsed>=CT.duration){
-      clearInterval(CT.interval);CT.running=false;
-      soltarWakeLock();
-      detenerAudioKeepAlive();
+      clearInterval(CT.interval); CT.running=false;
+      soltarWakeLock(); detenerAudioKeepAlive();
+      localStorage.removeItem('ct_start');
       document.getElementById('btnPlay').textContent='INICIAR';
       document.getElementById('ctStat').textContent='LISTO';
       beep('alarm');
       hablar('tiempo completado registre el resultado');
       addLog('Tiempo completado','d');
-      setPhaseCard({title:'¡Tiempo completado!',desc:'Ingrese el resultado y agréguelo a la lista.',cls:'alarm'});
+      setPhaseCard({title:'Tiempo completado',desc:'Ingrese el resultado.',cls:'alarm'});
+      var av=document.getElementById('pantallaAviso');
+      if(av) av.className='pantalla-aviso';
     }
   },1000);
 }
