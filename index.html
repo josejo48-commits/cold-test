@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cold Test">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Cold Test</title>
 <style>
 :root{
@@ -104,18 +104,28 @@ body{background:var(--bg);color:var(--text);
 .prog-bar{height:100%;border-radius:3px;transition:width .8s linear,background .3s;
   background:linear-gradient(90deg,var(--iced),var(--ice2));}
 .prog-bar.warn{background:linear-gradient(90deg,#884400,var(--warn));}
+.prog-wrap{height:8px;background:rgba(255,255,255,.08);border-radius:4px;
+  overflow:hidden;margin:10px 0 5px;border:1px solid rgba(255,255,255,.12);}
+.prog-bar{height:100%;border-radius:4px;transition:width .8s linear,background .3s;
+  background:linear-gradient(90deg,var(--iced),var(--ice2));}
+.prog-bar.warn{background:linear-gradient(90deg,#884400,var(--warn));}
 .prog-bar.alarm{background:linear-gradient(90deg,#660000,var(--danger));}
 .prog-labels{display:flex;justify-content:space-between;
   font-size:9px;color:var(--muted);margin-bottom:12px;}
 
+/* MARCAS DE ALERTA en la barra */
+.prog-marks{position:relative;height:14px;margin-top:-2px;margin-bottom:10px;}
+.prog-mark{position:absolute;transform:translateX(-50%);text-align:center;}
+.prog-mark span{display:block;width:1px;height:5px;background:rgba(255,255,255,.3);margin:0 auto;}
+.prog-mark label{font-size:8px;color:var(--muted);white-space:nowrap;}
+
 /* BOTONES CONTROL */
 .btn-row{display:flex;gap:8px;margin-bottom:14px;}
-.btn{flex:1;padding:13px 0;border-radius:12px;border:none;font-size:13px;
+.btn{flex:1;padding:9px 0;border-radius:10px;border:none;font-size:12px;
   font-weight:700;cursor:pointer;font-family:inherit;text-transform:uppercase;
   letter-spacing:1px;transition:all .15s;-webkit-appearance:none;}
 .btn:active{transform:scale(.96);}
-.btn-play{background:linear-gradient(135deg,#006a44,#00a066);color:#fff;
-  box-shadow:0 4px 14px rgba(0,160,102,.2);}
+.btn-play{background:linear-gradient(135deg,#006a44,#00a066);color:#fff;}
 .btn-reset{background:var(--surf);border:1px solid var(--brd);color:var(--muted);}
 
 /* CARD GENÉRICA */
@@ -215,7 +225,7 @@ body{background:var(--bg);color:var(--text);
 <body>
 
 <div class="hdr">
-  <div class="hdr-ico"><img src="icons/icon-192.png" alt="CT"></div>
+  <div class="hdr-ico"><img src="icon-192.png" alt="CT"></div>
   <div><h1>Cold Test</h1><p>Cronómetro con voz</p></div>
   <button class="mute-btn on" id="muteBtn" onclick="toggleVoz()">🔊 VOZ</button>
 </div>
@@ -294,7 +304,8 @@ body{background:var(--bg);color:var(--text);
 
 <!-- PROGRESO -->
 <div class="prog-wrap"><div class="prog-bar" id="ctProg" style="width:0%"></div></div>
-<div class="prog-labels"><span>0</span><span id="progMid"></span><span id="progEnd">15 min</span></div>
+<div class="prog-marks" id="progMarks"></div>
+<div class="prog-labels"><span>0</span><span id="progEnd">15 min</span></div>
 
 <!-- BOTONES CRONÓMETRO -->
 <div class="btn-row">
@@ -386,29 +397,40 @@ function setDur(v){
   });
   buildPhases(v);
   document.getElementById('progEnd').textContent=v+' min';
-  document.getElementById('progMid').textContent=Math.round(v/2)+' min';
+  // Calcular posiciones de marcas fijas en la barra
+  var marks=[7,10,12,15];
+  var marksHtml='';
+  marks.forEach(function(m){
+    if(m<=v){
+      var pct=(m/v)*100;
+      marksHtml+='<div class="prog-mark" style="left:'+pct+'%">'
+        +'<span></span><label>'+m+'\'</label></div>';
+    }
+  });
+  var el=document.getElementById('progMarks');
+  if(el) el.innerHTML=marksHtml;
   if(!CT.running) setPhaseCard({title:'Listo para iniciar',
-    desc:'Duración '+v+' min — alertas a los '+Math.round(v*.5)+' y '+Math.round(v*.75)+' min.',cls:''});
+    desc:'Alertas a los 7, 10, 12 y 15 min.',cls:''});
 }
 
 function buildPhases(dur){
-  var p1=Math.round(dur*.5), p2=Math.round(dur*.75);
   CT.phases=[
-    {t:p1*60,
-     voice:'ya van '+p1+' minutos revise el cold test',
-     title:'Revisión — '+p1+' min',
-     desc:'Van '+p1+' min. Revise el análisis.',cls:'warn'},
-    {t:p2*60,
-     voice:'van '+p2+' minutos registre el resultado',
-     title:'Revisión — '+p2+' min',
-     desc:'Van '+p2+' min. Prepare el resultado.',cls:'warn'}
+    {t:7*60,  voice:'ya van 7 minutos revise el cold test',
+     title:'Revisión — 7 min', desc:'Van 7 min — revise el análisis.',cls:'warn'},
+    {t:10*60, voice:'van 10 minutos revise el cold test nuevamente',
+     title:'Revisión — 10 min', desc:'Van 10 min — segunda revisión.',cls:'warn'},
+    {t:12*60, voice:'van 12 minutos registre el resultado',
+     title:'Revisión — 12 min', desc:'Van 12 min — prepare el resultado.',cls:'warn'},
+    {t:15*60, voice:'alarma 15 minutos registre el resultado ahora',
+     title:'Alarma — 15 min', desc:'15 min — registre el resultado ahora.',cls:'alarm'}
   ];
-  for(var t=p2+2;t<=dur;t+=2){
+  // Si la duración es mayor a 15, agregar alertas cada 2 min
+  for(var t=17;t<=dur;t+=2){
     var tc=t;
     CT.phases.push({t:tc*60,
       voice:'alarma '+tc+' minutos registre ahora',
       title:'Alarma — '+tc+' min',
-      desc:tc+' min — registre el resultado ahora.',cls:'alarm'});
+      desc:tc+' min — registre el resultado.',cls:'alarm'});
   }
   CT.phases.sort(function(a,b){return a.t-b.t;});
   CT.phasesFired={};
@@ -739,20 +761,22 @@ function borrar(idx){
 function ctExportar(){
   if(!CT.lista.length){alert('No hay registros.');return;}
   var now=new Date();
-  var fecha=now.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit',year:'numeric'});
+  var dia=String(now.getDate()).padStart(2,'0');
+  var mes=String(now.getMonth()+1).padStart(2,'0');
+  var anio=now.getFullYear();
   var hora=now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
 
-  var msg='🧊 *COLD TEST*\n'
+  var msg='❄️ *COLD TEST*\n'
     +'━━━━━━━━━━━━━━━━━━━━━━\n'
-    +'📅 '+fecha+'   ⏰ '+hora+'\n'
+    +'📅 '+dia+'/'+mes+'/'+anio+'   🕐 '+hora+'\n'
     +'━━━━━━━━━━━━━━━━━━━━━━\n';
 
   ['1','2'].forEach(function(f){
     var items=CT.lista.filter(function(x){return x.frac===f;});
     if(!items.length) return;
-    msg+='🏭 *Fraccionamiento '+f+'*\n';
+    msg+='🔬 *Fraccionamiento '+f+'*\n';
     items.forEach(function(item){
-      msg+='  Batch '+item.batch+' #'+item.num
+      msg+='Batch '+item.batch+' #'+item.num
         +': '+item.tiempo+' → *'+item.resultado+'*\n';
     });
     msg+='\n';
